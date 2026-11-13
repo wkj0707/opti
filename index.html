@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>머신러닝 기반 최적화 툴 — GP · RBFNN 예측 모델과 최적 설계조건</title>
+<!-- seo-kit: 검색 · 공유 미리보기(주소를 옮기면 이 묶음의 주소를 내 주소로) -->
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="HD현대사이트솔루션">
+<meta property="og:title" content="HD현대사이트솔루션 · 머신러닝 기반 최적화 툴">
+<meta property="og:description" content="실험·해석 데이터로 GP(가우시안 프로세스 회귀) 또는 RBFNN(방사 기저 함수 신경망) 모델을 하이퍼파라미터 조합마다 만들어 검증 R²로 비교·선정하고, 고른 모델로 Grid Search 를 돌려 최적 설계조건을 찾고, 두 인자를 골라 3D 반응 곡면을 돌려 보는 브라우저 도구입니다">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="머신러닝 기반 최적화 툴">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HD현대사이트솔루션 · 머신러닝 기반 최적화 툴">
+<meta name="twitter:description" content="실험·해석 데이터로 GP(가우시안 프로세스 회귀) 또는 RBFNN(방사 기저 함수 신경망) 모델을 하이퍼파라미터 조합마다 만들어 검증 R²로 비교·선정하고, 고른 모델로 Grid Search 를 돌려 최적 설계조건을 찾고, 두 인자를 골라 3D 반응 곡면을 돌려 보는 브라우저 도구입니다">
+<!-- /seo-kit -->
+<meta name="description" content="실험·해석 데이터로 GP(가우시안 프로세스 회귀) 또는 RBFNN(방사 기저 함수 신경망) 모델을 하이퍼파라미터 조합마다 만들어 검증 R²로 비교·선정하고, 고른 모델로 Grid Search 를 돌려 최적 설계조건을 찾고, 두 인자를 골라 3D 반응 곡면을 돌려 보는 브라우저 도구입니다.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/app.css">
+<!-- auth-kit: 로그인 전에는 도구 화면을 감춘다(js/auth.js 가 판정 뒤 푼다) -->
+<script>document.documentElement.classList.add('auth-lock')</script>
+<link rel="stylesheet" href="css/auth.css?v=2026-11-13.13">
+<link rel="stylesheet" href="css/board.css?v=2026-11-13.13">
+<link rel="stylesheet" href="css/kit-build.css?v=2026-11-13.13">
+<!-- /auth-kit -->
+</head>
+<body>
+
+<nav class="topnav" aria-label="주요 메뉴">
+  <div class="topnav-inner">
+    <a class="topnav-brand" href="index.html">머신러닝 기반 최적화 툴 <small>build-2611-13 · 기획 원광재</small></a>
+    <ul class="topnav-links">
+      <li><a href="#s-data">데이터</a></li>
+      <li><a href="#s-train">학습</a></li>
+      <li><a href="#s-models">모델 비교</a></li>
+      <li><a href="#s-opt">최적화</a></li>
+      <li><a href="#s-surf">반응 곡면</a></li>
+      <li><a href="guide.html">사용법</a></li>
+      <li><a href="plan.html">기획서</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">생성형 AI 업무자동화 전문가과정 · 2차수 · 프로젝트 13</div>
+  <h1>머신러닝 기반 최적화 툴</h1>
+  <p>실험·해석 데이터로 <b>GP(가우시안 프로세스 회귀)</b> 또는 <b>RBFNN(방사 기저 함수 신경망)</b> 모델을 하이퍼파라미터 조합마다 만들어 <b>R²로 비교</b>하고,
+     고른 모델로 <b>Grid Search</b> 를 돌려 최적 설계조건을 찾고, 두 인자를 골라 <b>반응 곡면</b>을 돌려 봅니다.</p>
+</div></header>
+
+<main><div class="wrap layout">
+
+<aside class="side" aria-label="모델 고르기와 단계">
+  <div class="side-box">
+    <div class="side-h">모델 종류</div>
+    <label class="mchoice"><input type="radio" name="mtype" value="gp" checked><span><b>GP 모델</b><small>가우시안 프로세스 회귀 · 예측 ±σ 제공</small></span></label>
+    <label class="mchoice"><input type="radio" name="mtype" value="rbf"><span><b>RBFNN 모델</b><small>방사 기저 함수 신경망 · σ 없음</small></span></label>
+    <div id="side-results" class="side-results"></div>
+  </div>
+  <nav class="side-nav" aria-label="단계">
+    <a href="#s-data">1. 데이터</a><a href="#s-train">2. 학습 설정</a><a href="#s-models">3. 모델 비교</a>
+    <a href="#s-opt">4. 최적화</a><a href="#s-surf">5. 반응 곡면</a><a href="#s-out">6. 저장</a>
+  </nav>
+</aside>
+
+<div class="content">
+
+<section id="s-data" class="card">
+  <h2 style="margin-top:0">1. 데이터를 넣으세요</h2>
+  <p class="sub">행은 Run, 열은 설계인자와 결과값입니다. CSV·엑셀을 불러오거나 아래 표에 직접 적으세요.</p>
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept=".csv,.xlsx,.xls,.txt">
+    <b>CSV·엑셀 파일을 끌어다 놓거나 눌러서 고르세요</b>
+    <span>파일은 서버로 올라가지 않습니다 · 계산은 이 브라우저 안에서만 합니다</span>
+  </label>
+  <div class="btnrow">
+    <button class="btn primary" id="btn-sample">예제로 해보기</button>
+    <button class="btn" id="btn-template">CSV 양식 내려받기</button>
+    <label class="btn" for="model-file">저장한 모델 불러오기</label>
+    <input type="file" id="model-file" accept=".json,application/json">
+  </div>
+  <p class="sub" style="margin-top:10px">예제 데이터는 실제 사내 데이터가 아닙니다 — 알려진 함수에 잡음을 더해 만든 가짜 실험 30 Run 입니다.</p>
+
+  <h3>데이터 표</h3>
+  <div class="btnrow tight">
+    <button class="btn sm" id="btn-addrow">행 추가</button>
+    <button class="btn sm" id="btn-addcol">열 추가</button>
+    <button class="btn sm" id="btn-clear">표 비우기</button>
+  </div>
+  <div class="tablewrap grid-edit" id="grid"></div>
+  <div class="roles" id="roles"></div>
+  <div id="data-status"></div>
+</section>
+
+<section id="s-train" class="card" hidden>
+  <h2 style="margin-top:0">2. 학습 설정</h2>
+  <div class="form">
+    <label>학습 데이터 비율(%) <input type="number" id="ratio" value="80" min="50" max="95" step="5"></label>
+    <label>분할 시드 <input type="number" id="seed" value="42" step="1"></label>
+    <div class="split-info" id="split-info"></div>
+  </div>
+  <p class="sub">같은 시드면 같은 Run 이 검증으로 갑니다. 시드를 바꾸면 다른 분할로 다시 확인할 수 있습니다.</p>
+  <h3>하이퍼파라미터 탐색 범위 <small class="sub" id="h-model"></small></h3>
+  <p class="sub" id="h-how">입력·출력을 표준화(평균 0 · 표준편차 1)한 뒤의 값입니다. 최소와 최대 사이를 로그 간격으로 나눕니다.</p>
+  <div class="tablewrap"><table id="hyper-tbl">
+    <thead><tr><th>하이퍼파라미터</th><th>뜻</th><th>최소</th><th>최대</th><th>개수</th><th>값</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="btnrow">
+    <button class="btn primary" id="btn-train">모델 학습 · 비교</button>
+    <span class="count" id="h-count"></span>
+  </div>
+</section>
+
+<section id="s-models" class="card" hidden>
+  <h2 style="margin-top:0">3. 모델 비교 · 평가</h2>
+  <div id="chosen"></div>
+  <h3>하이퍼파라미터별 검증 R²</h3>
+  <p class="sub">값 하나마다 나머지 두 하이퍼파라미터를 어떻게 골랐을 때든 가장 좋았던 검증 R² 입니다. 굵은 점이 고른 모델입니다.</p>
+  <div class="charts three" id="hyper-charts"></div>
+  <h3>모델 목록 <small class="sub" id="models-how">검증 R² 큰 순 · 같으면 로그 주변우도 큰 순 · 다른 행을 눌러 고를 수 있습니다</small></h3>
+  <div class="tablewrap models" id="models"></div>
+  <div class="charts two">
+    <div><h3>예측값 - 실측값</h3><div id="parity" class="chart"></div></div>
+    <div><h3>잔차(실측 - 예측)</h3><div id="resid" class="chart"></div></div>
+  </div>
+  <h3>설계인자 영향도(파레토)</h3>
+  <div class="charts two">
+    <div id="pareto" class="chart"></div>
+    <div class="note" id="pareto-how"></div>
+  </div>
+</section>
+
+<section id="s-opt" class="card" hidden>
+  <h2 style="margin-top:0">4. 최적 설계조건 탐색(Grid Search)</h2>
+  <p class="sub" id="opt-model"></p>
+  <div class="tablewrap"><table id="spec">
+    <thead><tr><th>설계인자</th><th>데이터 범위</th><th>최소</th><th>최대</th><th>간격</th><th>점 수</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="form">
+    <label>목표
+      <select id="goal">
+        <option value="max">최대화</option>
+        <option value="min">최소화</option>
+        <option value="target">목표값에 가깝게</option>
+      </select></label>
+    <label id="f-target" hidden>목표값 <input type="number" id="target-val" step="any"></label>
+  </div>
+  <div class="btnrow">
+    <button class="btn primary" id="btn-opt">최적 조건 찾기</button>
+    <span class="count" id="g-count"></span>
+  </div>
+  <div id="opt-result"></div>
+</section>
+
+<section id="s-surf" class="card" hidden>
+  <h2 style="margin-top:0">5. 반응 곡면</h2>
+  <p class="sub" id="surf-how">설계인자 두 개를 가로(X)·세로(Y)축으로 고르면 결과값 예측을 높이(Z)와 색으로 그립니다. 고르지 않은 인자는 아래 값에 고정해 계산합니다. 그림을 끌면 돌아갑니다.</p>
+  <div id="surf-ui">
+    <div class="form surf-axes">
+      <label>X 축 <select id="sx"></select></label>
+      <label>Y 축 <select id="sy"></select></label>
+      <label>격자 <select id="sn"><option value="15">15 × 15</option><option value="25" selected>25 × 25</option><option value="40">40 × 40</option></select></label>
+    </div>
+    <div id="surf-fixed" class="surf-fixed"></div>
+    <div class="btnrow tight">
+      <button class="btn sm" id="btn-fix-mean">고정값을 데이터 평균으로</button>
+      <button class="btn sm" id="btn-fix-opt" disabled>고정값을 1순위 최적 조건으로</button>
+      <button class="btn sm" id="btn-view-reset">처음 보기</button>
+      <button class="btn sm" id="btn-view-top">위에서 보기</button>
+      <button class="btn sm" id="btn-zoom-in" aria-label="확대">확대</button>
+      <button class="btn sm" id="btn-zoom-out" aria-label="축소">축소</button>
+      <button class="btn sm" id="btn-surf-png">그림 저장(PNG)</button>
+    </div>
+    <div class="surf-box"><canvas id="surf-canvas" role="img" aria-label="반응 곡면 3차원 그림"></canvas></div>
+    <div id="surf-read" class="surf-read">곡면 위에 마우스를 올리면 그 점의 값이 나옵니다.</div>
+  </div>
+  <div id="surf-one" hidden>
+    <p class="sub">설계인자가 하나라 곡면 대신 반응 곡선을 그립니다.</p>
+    <div class="charts three" id="curves"></div>
+  </div>
+</section>
+
+<section id="s-out" class="card" hidden>
+  <h2 style="margin-top:0">6. 저장 · 내보내기</h2>
+  <p class="sub">모델 파일(JSON)에는 표준화 계수 · 하이퍼파라미터 · 학습 데이터가 들어 있습니다. 다시 불러오면 같은 예측을 냅니다.
+    파일 맨 앞 <code>_사용법</code> 칸에 넣을 입력(이름·순서·단위)과 결과를 계산하는 순서, JavaScript·Python 예시 코드를 적어 둡니다.
+    학습 데이터가 들어 있으니 사외로 보낼 때 주의하세요.</p>
+  <div class="btnrow">
+    <button class="btn" id="btn-save">모델 저장(JSON)</button>
+    <button class="btn green" id="btn-export">결과 엑셀로 내보내기</button>
+  </div>
+  <p class="sub" style="margin-top:10px">엑셀 시트: 데이터 · 모델비교 · 검증예측 · 최적조건</p>
+</section>
+
+</div>
+</div></main>
+
+<footer><div class="wrap">
+  생성형 AI 업무자동화 전문가과정 2차수 · 프로젝트 13 · 기획 원광재 ·
+  예제 데이터는 실제 사내 데이터가 아닙니다.
+</div></footer>
+
+<script src="lib/xlsx.full.min.js"></script>
+<script src="js/gpr.js"></script>
+<script src="js/app.js"></script>
+<!-- auth-kit: 로그인 · 사용 신청 · 승인 · 게시판(키트 정본 data10-00/kit/auth, 적용 build-2611-00/tools/kit) -->
+<script src="vendor/supabase.js?v=2026-11-13.13"></script>
+<script src="js/auth-config.js?v=2026-11-13.13"></script>
+<script src="js/kit-build.js?v=2026-11-13.13"></script>
+<script src="js/board.js?v=2026-11-13.13"></script>
+<script src="js/auth.js?v=2026-11-13.13"></script>
+<!-- /auth-kit -->
+</body>
+</html>
